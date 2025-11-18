@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ממיר מקשים דו-כיווני</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            direction: rtl; /* כיוון קריאה מימין לשמאל */
+            background-color: #f0f4f8;
+        }
+        .container {
+            max-width: 800px;
+        }
+        textarea {
+            resize: none;
+            min-height: 200px;
+        }
+        
+        /* התיבה העליונה - קלט אנגלי */
+        #inputEnglish {
+            direction: ltr; 
+            /* הסרנו text-align: right; כדי שהקלדה תתחיל משמאל */
+        }
+        /* כופה את יישור הפלייס-הולדר לימין בלבד, מבלי לשנות את כיוון הטקסט המוקלד */
+        #inputEnglish::placeholder {
+            text-align: right;
+        }
+        /* ודא תאימות לדפדפנים נפוצים */
+        #inputEnglish::-webkit-input-placeholder { /* Chrome/Safari/Opera */
+            text-align: right;
+        }
+        #inputEnglish:-ms-input-placeholder { /* IE 10+ */
+            text-align: right;
+        }
+
+        /* התיבה התחתונה מקבלת קלט של אותיות עבריות (rtl) */
+        #outputHebrew {
+            direction: rtl;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+
+    <div class="container mx-auto bg-white p-6 sm:p-10 rounded-xl shadow-2xl border border-gray-100">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">ממיר מקשים דו-כיווני (אנגלית ⇆ עברית)</h1>
+        <!-- הפסקה עודכנה בהתאם לבקשתך -->
+        <p class="text-gray-600 mb-8 text-center">הקלד באחת מהתיבות כדי לבצע המרה מיידית לתיבה הנגדית. ההמרה עובדת בשני הכיוונים.</p>
+
+        <!-- קלט / פלט אנגלי (מקשים) -->
+        <div class="mb-6">
+            <div class="flex justify-between items-center mb-2">
+                <!-- עדכון הכותרת -->
+                <label for="inputEnglish" class="text-lg font-medium text-gray-700">מקשים אנגליים:</label>
+                <button onclick="copyToClipboard('inputEnglish', event)" 
+                        class="text-sm px-3 py-1 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 transition duration-150 shadow-md transform hover:scale-105">
+                    העתק
+                </button>
+            </div>
+            <textarea id="inputEnglish" 
+                      class="w-full p-4 border-2 border-indigo-300 rounded-lg focus:ring-4 focus:ring-indigo-500 focus:border-indigo-500 transition shadow-inner"
+                      placeholder="הקלד אותיות אנגליות"
+                      oninput="handleInput(event)"></textarea>
+        </div>
+
+        <!-- קלט / פלט עברי -->
+        <div>
+            <div class="flex justify-between items-center mb-2">
+                <!-- עדכון הכותרת -->
+                <label for="outputHebrew" class="text-lg font-medium text-gray-700">אותיות עבריות:</label>
+                <button onclick="copyToClipboard('outputHebrew', event)" 
+                        class="text-sm px-3 py-1 bg-green-500 text-white rounded-md hover:bg-green-600 transition duration-150 shadow-md transform hover:scale-105">
+                    העתק
+                </button>
+            </div>
+            <textarea id="outputHebrew" 
+                      class="w-full p-4 border-2 border-green-300 bg-green-50 rounded-lg shadow-inner"
+                      placeholder="הקלד אותיות עבריות"
+                      oninput="handleInput(event)"></textarea>
+        </div>
+
+    </div>
+
+    <script>
+        // המפה הבסיסית: אנגלית -> עברית (מקש -> תו)
+        const keyMap = {
+            't': 'א', 'c': 'ב', 'd': 'ג', 's': 'ד', 'v': 'ה',
+            'u': 'ו', 'z': 'ז', 'j': 'ח', 'y': 'ט', 'h': 'י',
+            'f': 'כ', 'k': 'ל', 'n': 'מ', 'b': 'נ', 'x': 'ס',
+            'g': 'ע', 'p': 'פ', 'm': 'צ', 'e': 'ק', 'r': 'ר',
+            'a': 'ש', ',': 'ת', '.': 'ץ', 'l': 'ך', ';': 'ף',
+            'o': 'ם', 'i': 'ן', 'q': '/',
+            'T': 'א', 'C': 'ב', 'D': 'ג', 'S': 'ד', 'V': 'ה', // הוספת אותיות גדולות עבור קלט ישיר
+            'U': 'ו', 'Z': 'ז', 'J': 'ח', 'Y': 'ט', 'H': 'י',
+            'F': 'כ', 'K': 'ל', 'N': 'מ', 'B': 'נ', 'X': 'ס',
+            'G': 'ע', 'P': 'פ', 'M': 'צ', 'E': 'ק', 'R': 'ר',
+            'A': 'ש',
+        };
+
+        // יצירת המפה ההפוכה: עברית -> אנגלית (תו -> מקש)
+        const reverseKeyMap = {};
+        for (const enChar in keyMap) {
+            // מוודאים שלא דורסים את המיפוי של האותיות הגדולות עם הקטנות
+            if (enChar.length === 1 && enChar === enChar.toLowerCase()) {
+                 reverseKeyMap[keyMap[enChar]] = enChar;
+            }
+        }
+        
+        /**
+         * פונקציה גנרית הממפה טקסט נתון באמצעות מפה נתונה.
+         * @param {string} text - הטקסט להמרה.
+         * @param {Object} map - מפת ההמרות (מפתח: תו מקור, ערך: תו יעד).
+         * @returns {string} - הטקסט המומר.
+         */
+        function convertText(text, map) {
+            let convertedText = '';
+
+            for (let i = 0; i < text.length; i++) {
+                const char = text[i];
+                
+                if (map.hasOwnProperty(char)) {
+                    convertedText += map[char];
+                } else {
+                    convertedText += char;
+                }
+            }
+            return convertedText;
+        }
+
+        /**
+         * מטפל בקלט משתי תיבות הטקסט ומעדכן את התיבה הנגדית.
+         * @param {Event} event - אירוע הקלט.
+         */
+        function handleInput(event) {
+            const sourceId = event.target.id;
+            const inputElement = event.target;
+            const englishTextarea = document.getElementById('inputEnglish');
+            const hebrewTextarea = document.getElementById('outputHebrew');
+
+            // מונע עדכון הדדי אינסופי כאשר משנים את ערך התיבה הנגדית
+            if (inputElement.dataset.updating) return;
+
+            const inputText = inputElement.value;
+            let convertedText = '';
+
+            try {
+                // סימון שאנו מעדכנים כעת את התיבה הנגדית
+                if (sourceId === 'inputEnglish') {
+                    convertedText = convertText(inputText, keyMap);
+                    hebrewTextarea.dataset.updating = true;
+                    hebrewTextarea.value = convertedText;
+                    delete hebrewTextarea.dataset.updating;
+                    
+                } else if (sourceId === 'outputHebrew') {
+                    convertedText = convertText(inputText, reverseKeyMap);
+                    englishTextarea.dataset.updating = true;
+                    englishTextarea.value = convertedText;
+                    delete englishTextarea.dataset.updating;
+                }
+            } catch (error) {
+                console.error("Conversion error:", error);
+            }
+        }
+
+        /**
+         * מעתיק את תוכן תיבת הטקסט ללוח הגזירים ומציג הודעת משוב.
+         * @param {string} elementId - ה-ID של תיבת הטקסט להעתקה.
+         * @param {Event} event - אירוע הקליק על הכפתור.
+         */
+        function copyToClipboard(elementId, event) {
+            const element = document.getElementById(elementId);
+            const button = event.target;
+            const originalText = button.textContent;
+            const originalBg = button.style.backgroundColor;
+            
+            // בודק אם יש תוכן בכלל להעתקה
+            if (element.value.trim() === "") {
+                const noContentMsg = "אין תוכן להעתקה";
+                button.textContent = noContentMsg;
+                setTimeout(() => {
+                    button.textContent = originalText;
+                }, 1500);
+                return;
+            }
+
+            element.select();
+            
+            try {
+                // שימוש ב-document.execCommand('copy') כיוון ש-navigator.clipboard.writeText 
+                // עלול לא לעבוד בסביבות iframe (כמו Canvas)
+                const successful = document.execCommand('copy');
+                const msg = successful ? 'הועתק בהצלחה!' : 'שגיאת העתקה!';
+                const successColor = successful ? '#10B981' : '#EF4444'; // ירוק/אדום
+                
+                // הצגת הודעה קצרה בתוך הכפתור
+                button.textContent = msg;
+                button.style.backgroundColor = successColor;
+                
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    // החזרת צבע הרקע המקורי מופשטת - נעזר ב-Tailwind לשינוי עיצוב
+                    // במקום להחזיר צבע מוגדר, נסתמך על שינוי קלאס
+                    button.classList.remove('bg-green-500', 'bg-indigo-500', 'bg-red-500');
+                    if (elementId === 'inputEnglish') {
+                        button.classList.add('bg-indigo-500');
+                    } else {
+                        button.classList.add('bg-green-500');
+                    }
+                }, 1500);
+
+            } catch (err) {
+                console.error('Failed to copy text:', err);
+                button.textContent = 'שגיאה!';
+                button.classList.add('bg-red-500');
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('bg-red-500');
+                    if (elementId === 'inputEnglish') {
+                        button.classList.add('bg-indigo-500');
+                    } else {
+                        button.classList.add('bg-green-500');
+                    }
+                }, 1500);
+            }
+        }
+    </script>
+
+</body>
+</html>
